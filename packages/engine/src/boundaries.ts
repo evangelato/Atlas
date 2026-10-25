@@ -11,16 +11,23 @@ export type Loop = number[];
  * going inside → outside, which links it to one neighbouring triangle. So
  * following those links from triangle to triangle walks each outline once.
  */
-export function traceBoundaries(mesh: Mesh, inside: (cell: number) => boolean): Loop[] {
+export function traceBoundaries(
+  mesh: Mesh,
+  inside: (cell: number) => boolean,
+  crossing?: (from: number, to: number) => [number, number],
+): Loop[] {
   const { triangles, halfedges } = mesh.delaunay;
   const nextTriangle = new Map<number, number>();
+  const pointOf = new Map<number, [number, number]>();
 
   for (let e = 0; e < triangles.length; e++) {
     const from = triangles[e]!;
     const to = triangles[e % 3 === 2 ? e - 2 : e + 1]!;
     const opposite = halfedges[e]!;
     if (opposite < 0 || !inside(from) || inside(to)) continue;
-    nextTriangle.set(Math.floor(e / 3), Math.floor(opposite / 3));
+    const t = Math.floor(e / 3);
+    nextTriangle.set(t, Math.floor(opposite / 3));
+    if (crossing) pointOf.set(t, crossing(from, to));
   }
 
   const loops: Loop[] = [];
@@ -31,12 +38,36 @@ export function traceBoundaries(mesh: Mesh, inside: (cell: number) => boolean): 
     let t: number | undefined = start;
     while (t !== undefined && !visited.has(t)) {
       visited.add(t);
-      loop.push(mesh.corners[2 * t]!, mesh.corners[2 * t + 1]!);
+      const p = pointOf.get(t);
+      if (p) loop.push(p[0], p[1]);
+      else loop.push(mesh.corners[2 * t]!, mesh.corners[2 * t + 1]!);
       t = nextTriangle.get(t);
     }
     if (loop.length >= 6) loops.push(loop);
   }
   return loops;
+}
+
+/**
+ * Contour lines: outlines where `values` crosses `threshold` (e.g. the coastline
+ * is where height crosses sea level). Each point is placed along the cell-to-cell
+ * edge where the value would cross, which gives much smoother lines than cell corners.
+ */
+export function traceContours(mesh: Mesh, values: ArrayLike<number>, threshold: number): Loop[] {
+  const { points } = mesh;
+  return traceBoundaries(
+    mesh,
+    (c) => values[c]! >= threshold,
+    (a, b) => {
+      const va = values[a]!;
+      const vb = values[b]!;
+      const t = Math.min(0.9, Math.max(0.1, (va - threshold) / (va - vb || 1)));
+      return [
+        points[2 * a]! + t * (points[2 * b]! - points[2 * a]!),
+        points[2 * a + 1]! + t * (points[2 * b + 1]! - points[2 * a + 1]!),
+      ];
+    },
+  );
 }
 
 /** Chaikin smoothing: rounds off corners of a closed loop. Each pass doubles the points. */
