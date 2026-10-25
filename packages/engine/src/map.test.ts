@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loopArea, smoothLoop, traceBoundaries } from './boundaries';
+import { loopArea, smoothLoop, traceBoundaries, traceContours } from './boundaries';
 import { SEA_LEVEL } from './heightmap';
 import { generateMap, isLand, landFraction } from './map';
 
@@ -68,6 +68,11 @@ describe('coastlines', () => {
         expect(loop[i + 1]).toBeLessThan(map.height);
       }
     }
+  });
+
+  it('contours match the plain outlines one-to-one', () => {
+    const contours = traceContours(map.mesh, map.heights, SEA_LEVEL);
+    expect(contours.map((l) => l.length)).toEqual(loops.map((l) => l.length));
   });
 
   it('smoothing keeps roughly the same enclosed area', () => {

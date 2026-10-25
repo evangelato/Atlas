@@ -40,14 +40,12 @@ export function generateHeights(mesh: Mesh, rng: Rng, options: HeightOptions = {
       continent = Math.max(continent, b.strength * Math.exp(-d2 / (2 * b.r * b.r)));
     }
 
-    const edge = smoothstep(
-      Math.min(
-        x / (0.1 * width),
-        (width - x) / (0.1 * width),
-        y / (0.1 * height),
-        (height - y) / (0.1 * height),
-      ),
-    );
+    // Distance to the nearest border, as a share of a margin that is the same
+    // on all four sides. Noise makes the margin irregular, so land bends away
+    // from the border naturally instead of being cut off in a straight line.
+    const margin = 0.18 * Math.min(width, height);
+    const wobble = 0.6 * noise((x / width) * 2.5 + 31.7, (y / width) * 2.5 - 12.3);
+    const edge = smoothstep(Math.min(x, width - x, y, height - y) / margin + wobble);
 
     let v = continent + 0.45 * fbm(noise, x / width, y / width);
     v = v * edge - (1 - edge);
