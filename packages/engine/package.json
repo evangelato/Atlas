@@ -1,0 +1,19 @@
+{
+  "name": "@atlas/engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/d3-delaunay": "^6.0.4"
+  },
+  "dependencies": {
+    "d3-delaunay": "^6.0.4",
+    "simplex-noise": "^4.0.3"
+  }
+}
