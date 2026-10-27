@@ -3,3 +3,4 @@ export * from './mesh';
 export * from './heightmap';
 export * from './boundaries';
 export * from './map';
+export * from './render-svg';
