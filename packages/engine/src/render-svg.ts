@@ -19,31 +19,48 @@ const BANDS: { min: number; fill: string }[] = [
 const SEA = '#8fb4c8';
 const COAST = '#3b2f24';
 
+/** Draws the map as an SVG string. Each layer is drawn on top of the previous one. */
 export function renderSvg(map: AtlasMap): string {
-  const { width, height, mesh, heights } = map;
-  const parts: string[] = [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">`,
-    `<rect width="${width}" height="${height}" fill="${SEA}"/>`,
-  ];
-
-  let coastline = '';
-  for (const band of BANDS) {
-    const loops = traceContours(mesh, heights, band.min).map((l) => smoothLoop(l));
-    const d = loopsToPath(loops);
-    if (!d) continue;
-    parts.push(`<path d="${d}" fill="${band.fill}" fill-rule="evenodd"/>`);
-    if (band.min === SEA_LEVEL) coastline = d;
-  }
-
-  if (coastline) {
-    parts.push(
-      `<path d="${coastline}" fill="none" stroke="${COAST}" stroke-width="1.6" stroke-linejoin="round"/>`,
-    );
-  }
-  parts.push('</svg>');
-  return parts.join('');
+  return svgDocument(map.width, map.height, [
+    seaLayer(map),
+    heightBandsLayer(map),
+    coastlineLayer(map),
+  ]);
 }
 
+function svgDocument(width: number, height: number, layers: string[]): string {
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">` +
+    layers.join('') +
+    '</svg>'
+  );
+}
+
+function seaLayer(map: AtlasMap): string {
+  return `<rect width="${map.width}" height="${map.height}" fill="${SEA}"/>`;
+}
+
+function heightBandsLayer(map: AtlasMap): string {
+  return BANDS.map((band) => {
+    const d = outlinePath(map, band.min);
+    return d ? `<path d="${d}" fill="${band.fill}" fill-rule="evenodd"/>` : '';
+  }).join('');
+}
+
+function coastlineLayer(map: AtlasMap): string {
+  const d = outlinePath(map, SEA_LEVEL);
+  return d
+    ? `<path d="${d}" fill="none" stroke="${COAST}" stroke-width="1.6" stroke-linejoin="round"/>`
+    : '';
+}
+
+/** Smoothed outline of everything at or above `level`, as SVG path data. */
+function outlinePath(map: AtlasMap, level: number): string {
+  const loops = traceContours(map.mesh, map.heights, level).map((l) => smoothLoop(l));
+  return loopsToPath(loops);
+}
+
+/** Turns outlines into SVG path data: "M x y" moves, "L x y" draws a line, "Z" closes. */
 function loopsToPath(loops: Loop[]): string {
   return loops
     .map((loop) => {
